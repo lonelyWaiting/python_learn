@@ -5,6 +5,7 @@ from datetime import datetime
 from aiohttp import web
 
 def index(request):
+    # 如果不添加headers,就无法将其解析为网页
     return web.Response(body=b'<h1>Awesome</h1>', headers={'content-type':'text/html'})
 
 @asyncio.coroutine
