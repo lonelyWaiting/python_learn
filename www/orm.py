@@ -82,12 +82,6 @@ class TextField(Field):
     def __init__(self,name=None,default=None):
         super().__init__(name,'text',False,default)
 
-def create_args_string(num):
-    L = []
-    for n in range(num):
-        L.append('?')
-    return ', '.join(L)
-
 # 以类对应表,类的属性就相当于列
 # 实例对应表中的一项，实例的属性值就是一行数据
 # 类所对应的表名通过类的__table__定义
@@ -128,7 +122,7 @@ class ModelMetaclass(type):
         attrs['__primary_key__'] = primaryKey   # primary attr name
         attrs['__fields__'] = fields            # field name of exclude primary key field
         attrs['__select_'] = 'select `%s`, %s from `%s`' % (primaryKey, ', '.join(escaped_fields) , tableName)
-        attrs['__insert__'] = 'insert into `%s` (%s, `%s`) values (%s)' % (tableName, ', '.join(escaped_fields), primaryKey, create_args_string(len(escaped_fields) + 1))
+        attrs['__insert__'] = 'insert into `%s` (%s, `%s`) values (%s)' % (tableName, ', '.join(escaped_fields), primaryKey, ', '.join(['?'] * len(mappings)))
         attrs['__update__'] = 'update `%s` set %s where `%s`=?' % (tableName, ' '.join(map(lambda f : '`%s`=?' % (mappings.get(f).name or f), fields)), primaryKey)
         attrs['__delete__'] = 'delete from `%s` where `%s`=?' % (tableName, primaryKey)
         return type.__new__(cls,name,bases,attrs)
@@ -163,7 +157,15 @@ class Model(dict,metaclass=ModelMetaclass):
     @asyncio.coroutine
     def findNumber(cls, selectField, where=None, args=None):
         'find object by select and where.'
-        sql = ['select %s _num_ from `%s`' % (selectField)]
+        sql = ['select %s _num_ from `%s`' % (selectField, cls.__table__)]
+        if where:
+            sql.append('where')
+            sql.append(where)
+        rs = await select(' '.join(sql), args , 1)
+        if len(rs) == 0:
+            return None
+        return rs[0]['_num_']
+
     @classmethod
     @asyncio.coroutine
     def find(cls,pk):
